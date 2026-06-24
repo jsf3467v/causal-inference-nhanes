@@ -1,8 +1,7 @@
 # Unit tests for the building blocks in shared.R. These run on synthetic data,
 # so they need no NHANES download and stay deterministic.
 
-shared <- if (file.exists("R/shared.R")) "R/shared.R" else "../../R/shared.R"
-source(shared)
+source(here::here("R", "shared.R"))
 
 test_that("study keeps only eligible adults with complete follow-up", {
   df <- tibble::tibble(
