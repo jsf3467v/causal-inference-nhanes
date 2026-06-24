@@ -17,3 +17,8 @@ data/
 # so it is tracked, but the libs folder and cache are not.
 .quarto/
 report_files/
+
+# Session scratch and redundant anchor
+.RDataTmp
+.Rapp.history
+.here
