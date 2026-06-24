@@ -2,3 +2,5 @@ report.html linguist-generated=true
 report_files/** linguist-generated=true
 tables/*.csv linguist-generated=true
 tables/*.txt linguist-generated=true
+
+*.sql linguist-language=SQL linguist-detectable=true
