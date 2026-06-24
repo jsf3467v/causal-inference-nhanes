@@ -1,0 +1,3 @@
+metric,value
+auroc_60mo,0.811
+c_index_oob,0.799

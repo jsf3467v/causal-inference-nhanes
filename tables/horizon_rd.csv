@@ -1,0 +1,5 @@
+exposure,months,rd
+activity,60,-0.0329
+activity,120,-0.0431
+smoking,60,0.0202
+smoking,120,0.0627
