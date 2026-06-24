@@ -2,12 +2,7 @@
 # report relies on, so a bad rerun that breaks an estimate fails the build.
 
 tbl <- function(name) {
-  p <- if (file.exists(file.path("tables", name))) {
-    file.path("tables", name)
-  } else {
-    file.path("..", "..", "tables", name)
-  }
-  readr::read_csv(p, show_col_types = FALSE)
+  readr::read_csv(here::here("tables", name), show_col_types = FALSE)
 }
 
 test_that("weighted estimate is negative and inside its interval", {
