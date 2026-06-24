@@ -1,3 +1,5 @@
+[![CI](https://github.com/jsf3467v/causal-inference-nhanes/actions/workflows/ci.yml/badge.svg)](https://github.com/jsf3467v/causal-inference-nhanes/actions/workflows/ci.yml)
+
 # Does Meeting the Aerobic Activity Guideline Lower Mortality
 
 > A two-act NHANES study on predicting an outcome and then changing it.
