@@ -42,6 +42,7 @@ To see the results without running anything.
 
 - **[report.html](report.html)** is the full rendered report with every figure, table, and the
   reasoning behind each check. Self-contained, open it in any browser.
+- **[Interactive dashboard](https://public.tableau.com/app/profile/a.keith/viz/ActivityandMortalityChart/Dashboard1)** is an exploratory Tableau companion showing the descriptive, unadjusted patterns in the cohort. The adjusted causal analysis lives in the report.
 - **`tables/`** holds every CSV the report reads, one per analysis.
 - **`figures/`** holds the calibration, importance, balance, and distribution plots.
 
