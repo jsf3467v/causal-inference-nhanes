@@ -6,14 +6,14 @@
 
 Six cycles of NHANES (2007-2018), linked to mortality records through 2019, were used to address two questions. Act 1 predicts mortality based on baseline traits. Act 2 assesses whether meeting the aerobic activity guideline reduces five-year mortality, distinguishing the effect of activity from other differences between active and inactive individuals.
 
-Meeting the guideline correlates with a 3.3 percentage point reduction in five-year mortality risk (weighted ATT -0.0329, 95% CI -0.041 to -0.025). This finding is consistent across matching and weighting methods, remains robust after positive and negative controls, a reverse-causation washout, and a mediator check, and is supported by an E-value of 2.9. It is presented as an upper bound on the potential benefit rather than a definitive causal figure, as the washout indicates that about a third of the effect may be due to reverse causation.
+Meeting the guideline correlates with a 3.3 percentage point reduction in five-year mortality risk (weighted ATT -0.0329, 95% CI -0.041 to -0.025). This finding is consistent across matching and weighting methods, and remains robust after positive and negative controls. A reverse-causation washout, and a mediator check is supported by an E-value of 2.9. It is presented as an upper bound on the potential benefit rather than a definitive causal figure, as the washout indicates that about a third of the effect may be due to reverse causation.
 
 ![Covariate balance before and after weighting](figures/love_weighting.png)
 
 ## Summary
 
 - **Question.** Whether adults aged 40 and older who meet the aerobic activity guideline have a 
-lower death rate compared to those who do not, and to what extent this difference is due to the 
+lower death rate compared to those who do not. To what extent is the difference due to the 
 activity itself versus their prior health.
 
 
@@ -41,7 +41,7 @@ activity itself versus their prior health.
 To see the results without running anything.
 
 - **[report.html](report.html)** is the full rendered report with every figure, table, and the
-  reasoning behind each check. Self-contained, open it in any browser.
+  reasoning behind each check. The charting is self-contained and can open in any browser.
 - **[Interactive dashboard](https://public.tableau.com/app/profile/a.keith/viz/ActivityandMortalityChart/Dashboard1)** is an exploratory Tableau companion showing the descriptive, unadjusted patterns in the cohort. The adjusted causal analysis lives in the report.
 - **`tables/`** holds every CSV the report reads, one per analysis.
 - **`figures/`** holds the calibration, importance, balance, and distribution plots.
@@ -60,7 +60,7 @@ install.packages(c(
 ```
 
 Open the project through `Casual Inf.Rproj` so the working directory and the `here()` anchor are
-set together. Running scripts from a bare session in another folder will misplace the outputs.
+set together. Running scripts from a bare session in another folder that will misplace the outputs.
 
 ## Data
 
