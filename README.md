@@ -2,55 +2,36 @@
 
 # Does Meeting the Aerobic Activity Guideline Lower Mortality
 
-> A two-act NHANES study on predicting an outcome and then changing it.
+> A causal study that first predicts five-year mortality, then estimates whether meeting the aerobic activity guideline lowers it.
 
-Six cycles of NHANES (2007-2018), linked to mortality records through 2019, were used to address two questions. Act 1 predicts mortality based on baseline traits. Act 2 assesses whether meeting the aerobic activity guideline reduces five-year mortality, distinguishing the effect of activity from other differences between active and inactive individuals.
+Six cycles of the National Health and Nutrition Examination Survey (NHANES), collected between 2007 and 2018 and linked to mortality records through 2019, address two questions. The first asks how accurately baseline characteristics predict five-year mortality. The second asks whether meeting the aerobic activity guideline lowers five-year mortality, separating the effect of activity from the other differences between active and inactive adults.
 
-Meeting the guideline correlates with a 3.3 percentage point reduction in five-year mortality risk (weighted ATT -0.0329, 95% CI -0.041 to -0.025). This finding is consistent across matching and weighting methods, and remains robust after positive and negative controls. A reverse-causation washout, and a mediator check is supported by an E-value of 2.9. It is presented as an upper bound on the potential benefit rather than a definitive causal figure, as the washout indicates that about a third of the effect may be due to reverse causation.
+Meeting the guideline is associated with a 3.3 percentage point reduction in five-year mortality risk. The weighted estimate is an average treatment effect on the treated of $-0.0329$, with a 95 percent confidence interval that runs from $-0.041$ to $-0.025$. The same result appears under both matching and weighting, and it survives the positive and negative controls. It carries an E-value of $2.9$, meaning that an unmeasured confounder would need a moderate association with both activity and mortality before the result would disappear. The figure is best understood as an upper bound on the benefit rather than a settled causal estimate, because a two-year washout shows that roughly a third of the effect may reflect reverse causation.
 
-![Covariate balance before and after weighting](figures/love_weighting.png)
+[![Covariate balance before and after weighting](https://github.com/jsf3467v/causal-inference-nhanes/raw/main/figures/love_weighting.png)](/jsf3467v/causal-inference-nhanes/blob/main/figures/love_weighting.png)
 
 ## Summary
 
-- **Question.** Whether adults aged 40 and older who meet the aerobic activity guideline have a 
-lower death rate compared to those who do not. To what extent is the difference due to the 
-activity itself versus their prior health.
+This study focuses on adults aged 40 and older. Out of 59,842 participants in six NHANES cycles, 22,235 met the criteria of being in that age group, having mortality follow-up data, and a known activity level. The exposure measured is leisure-time aerobic activity, expressed in moderate-equivalent minutes per week, with 150 minutes weekly serving as the guideline threshold. The key question is whether adults meeting this activity threshold exhibit a lower mortality rate compared to those who don't, and to what extent any observed differences are due to the activity itself versus existing health conditions.
 
+The initial phase involves training a random survival forest on each participant's actual follow-up data instead of using a censored five-year label. This approach achieves a time-dependent area under the ROC curve of $0.811$ at five years and an out-of-bag concordance of $0.799$. Although body mass index is used as a predictor here, it is excluded from the subsequent causal analysis.
 
-- **Data.** Six NHANES cycles included 59,842 participants, which was narrowed down to a study cohort of 22,235 adults aged 40 and older. This group was followed for mortality and had known activity levels. Exposure was measured as leisure-time aerobic activity in moderate-equivalent minutes per week, using 150 minutes as the guideline threshold.
+The second stage calculates the effect directly. Both propensity-score matching and inverse-probability weighting derive a risk difference from a weighted survival curve, retaining shorter follow-up periods instead of ignoring them. Matching results in $-0.0352$, while weighting yields $-0.0329$. Since body mass index is considered a mediator, it is excluded from the adjustment set.
 
+Several checks support the estimate. A smoking positive control recovers a known harm, with a matched risk difference of $0.016$ and a weighted risk difference of $0.0202$. An accidental-death negative control sits at zero, with a risk difference of $-0.0005$ and an interval from $-0.0018$ to $0.0008$. A two-year washout, which drops deaths in the first two years of follow-up, moves the estimate from $-0.0329$ to $-0.0219$, so roughly a third of the effect may reflect reverse causation. A mediator check restricted to participants with a recorded body mass index moves the estimate from $-0.029$ without that variable to $-0.0312$ with it, a negligible change that argues against body mass index acting as an important mediator. An E-value of $2.9$ indicates that an unmeasured confounder would need a moderate association with both activity and mortality to explain the result away.
 
-- **Act 1, prediction.** A random survival forest is applied to each individual's actual follow-up data instead of a censored five-year label. The model achieves a time-dependent AUROC of 0.811 at five years and an out-of-bag concordance of 0.799. Body mass index is used as a predictor in this context but is removed from the causal analysis.
+The cohort is built twice, once in R and once in DuckDB from a set of SQL files, and the two builds agree on every count, which guards against a silent error in either path.
 
-
-- **Act 2, the effect.** Propensity-score matching and inverse-probability weighting both estimate the risk difference from a weighted survival curve, maintaining shorter follow-up periods instead of discarding them. Matching yields -0.0352, while weighting results in -0.0329. Body mass index is excluded as a mediator in this analysis.
-
-
-- **Validation.** A smoking positive control recovers a known harm (0.0202). An accidental-death
-  negative control sits on zero (-0.0005, interval -0.0018 to 0.0008). A two-year washout moves the
-  estimate from -0.0329 to -0.0219. A mediator check adding body mass index back moves it only to
-  -0.0312. An E-value of 2.93 says a confounder would need a moderate association with both activity
-  and mortality to erase the result.
-
-
-- **Reproducibility.** The cohort is built twice, once in R and once in DuckDB from a set of SQL
-  files, and the two agree on every count, which guards against a quiet error in either path.
 
 ## Quick look
 
-To see the results without running anything.
-
-- **[report.html](report.html)** is the full rendered report with every figure, table, and the
-  reasoning behind each check. The charting is self-contained and can open in any browser.
-- **[Interactive dashboard](https://public.tableau.com/app/profile/a.keith/viz/ActivityandMortalityChart/Dashboard1)** is an exploratory Tableau companion showing the descriptive, unadjusted patterns in the cohort. The adjusted causal analysis lives in the report.
-- **`tables/`** holds every CSV the report reads, one per analysis.
-- **`figures/`** holds the calibration, importance, balance, and distribution plots.
+To see the results without running anything, open [report.html](https://github.com/jsf3467v/causal-inference-nhanes/blob/main/report.html), the fully rendered report that contains every figure, every table, and the reasoning behind each check. Its charting is self-contained and opens in any browser. An [interactive dashboard](https://public.tableau.com/app/profile/a.keith/viz/ActivityandMortalityChart/Dashboard1) shows the descriptive, unadjusted patterns in the cohort, while the adjusted causal analysis lives in the report. The `tables/` directory holds every data table the report reads, one per analysis, and the `figures/` directory holds the calibration, importance, balance, and distribution plots.
 
 ## Setup
 
-Tested on macOS (Apple Silicon) and Linux. R 4.4 or newer.
+The project is tested on macOS (Apple Silicon) and Linux and requires R 4.4 or newer. Install the dependencies in R.
 
-```r
+```
 install.packages(c(
   "here", "dplyr", "ggplot2", "tidyr", "readr", "purrr", "haven",
   "survival", "MatchIt", "WeightIt", "cobalt", "tableone",
@@ -59,35 +40,30 @@ install.packages(c(
 ))
 ```
 
-Open the project through `Casual Inf.Rproj` so the working directory and the `here()` anchor are
-set together. Running scripts from a bare session in another folder that will misplace the outputs.
+Open the project through `Casual Inf.Rproj` so that the working directory and the `here()` anchor are set together. Running scripts from a bare session in another folder will misplace the outputs.
 
 ## Data
 
-Everything is pulled and cached automatically on the first run. `data_sources.R` downloads the
-NHANES survey tables from the CDC and the public-use linked mortality files, then caches them to
-`data/raw` so later runs and crash recovery skip the network. Nothing needs to be downloaded by
-hand. The `data/` tree is not tracked by git.
+During the initial run, data_sources.R retrieves NHANES survey tables from the Centers for Disease Control and Prevention, along with public-use linked mortality files, and stores them in data/raw. This caching ensures that subsequent runs and crash recoveries do not require network access. Since this process occurs automatically, no manual data fetching is necessary, and the data/ directory is not managed by git.
 
 ## Reproducing from scratch
 
-Run from the project root in order. Each script reads the cached frame, so once the cohort is built
-the Act 2 scripts can run in any order.
+Run the scripts from the project root in the order shown below. Each script reads the cached frame, so once the cohort is built the second-stage scripts can run in any order.
 
-```r
+```
 source(here::here("R", "data_sources.R"))   # pull NHANES and mortality, cache to data/raw
 source(here::here("R", "cohort.R"))         # derive the analysis frame
-source(here::here("R", "database.R"))       # build the same cohort in DuckDB and check the counts
-source(here::here("R", "eda.R"))            # cohort flow, missingness, Table 1, distribution
+source(here::here("R", "database.R"))       # rebuild the cohort in DuckDB and check the counts
+source(here::here("R", "eda.R"))            # cohort flow, missingness, baseline table, distributions
 
-source(here::here("R", "prediction.R"))         # Act 1, train the survival forest
-source(here::here("R", "prediction_eval.R"))    # Act 1, discrimination and calibration
+source(here::here("R", "prediction.R"))         # prediction, train the survival forest
+source(here::here("R", "prediction_eval.R"))    # prediction, discrimination and calibration
 
-source(here::here("R", "matching.R"))           # Act 2, matched estimate
-source(here::here("R", "weighting.R"))          # Act 2, weighted estimate with bootstrap interval
+source(here::here("R", "matching.R"))           # causal, matched estimate
+source(here::here("R", "weighting.R"))          # causal, weighted estimate with bootstrap interval
 source(here::here("R", "horizon.R"))            # five and ten-year risk differences
 source(here::here("R", "positive_control.R"))   # smoking, a known harm
-source(here::here("R", "negative_control.R"))   # accidental death, should be null
+source(here::here("R", "negative_control.R"))   # accidental death, expected null
 source(here::here("R", "washout.R"))            # reverse-causation check
 source(here::here("R", "mediator.R"))           # body mass index sensitivity
 source(here::here("R", "evalue.R"))             # unmeasured-confounding bound
@@ -99,7 +75,7 @@ Then render the report.
 quarto render report.qmd
 ```
 
-Outputs land in `figures/` and `tables/`, and the report reads from both.
+The outputs land in the `figures/` and `tables/` directories, and the report reads from both.
 
 ## Project layout
 
@@ -113,12 +89,12 @@ Outputs land in `figures/` and `tables/`, and the report reads from both.
 │   ├── shared.R               # cohort rule, adjustment sets, weights, estimator, bootstrap
 │   ├── data_sources.R         # NHANES and mortality pulls, cached
 │   ├── cohort.R               # derive the analysis frame in R
-│   ├── database.R             # build the same cohort in DuckDB, check counts
-│   ├── eda.R                  # cohort flow, missingness, Table 1, distribution
-│   ├── prediction.R           # Act 1 training
-│   ├── prediction_eval.R      # Act 1 scoring
-│   ├── matching.R             # Act 2 matched estimate
-│   ├── weighting.R            # Act 2 weighted estimate
+│   ├── database.R             # rebuild the cohort in DuckDB, check counts
+│   ├── eda.R                  # cohort flow, missingness, baseline table, distributions
+│   ├── prediction.R           # prediction model training
+│   ├── prediction_eval.R      # prediction model scoring
+│   ├── matching.R             # matched causal estimate
+│   ├── weighting.R            # weighted causal estimate
 │   ├── horizon.R              # five and ten-year horizons
 │   ├── positive_control.R     # smoking control
 │   ├── negative_control.R     # accidental-death control
@@ -128,7 +104,7 @@ Outputs land in `figures/` and `tables/`, and the report reads from both.
 ├── SQL/                       # DuckDB build, one file per derived table
 ├── data/{raw,interim,processed}/   # not tracked by git
 ├── figures/                   # rendered plots
-└── tables/                    # rendered CSVs and Table 1
+└── tables/                    # rendered data tables and the baseline table
 ```
 
 ## Citation
