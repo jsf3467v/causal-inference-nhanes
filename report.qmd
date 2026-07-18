@@ -108,6 +108,11 @@ The initial step fits a random survival forest to predict time to death based on
 Discrimination remains strong, with the five-year area under the curve (`r auroc`) and out-of-bag concordance (`r cidx`) indicating the model's ability to distinguish between those who die and those who survive is well above chance. Calibration is the second evaluation, assessing how closely the model's predicted risks align with the observed risks in each group.
 
 ```{r}
+#| fig-cap: "Time-dependent ROC at five years."
+include_graphics(here("figures", "roc_curve.png"))
+```
+
+```{r}
 #| fig-cap: "Calibration at five years. Predicted risk against observed Kaplan-Meier risk by decile of predicted risk."
 include_graphics(here("figures", "calibration.png"))
 ```

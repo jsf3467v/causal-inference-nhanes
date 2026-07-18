@@ -61,6 +61,17 @@ importance_plot <- function(forest) {
     theme_minimal(base_size = 13)
 }
 
+roc_plot <- function(scored) {
+  k <- ncol(scored$TP)
+  tibble(fpr = scored$FP[, k], tpr = scored$TP[, k]) |>
+    ggplot(aes(fpr, tpr)) +
+    geom_abline(linetype = 2, color = "grey60") +
+    geom_line(color = "#1D6FB8", linewidth = 1) +
+    coord_equal() +
+    labs(x = "False positive rate", y = "True positive rate") +
+    theme_minimal(base_size = 13)
+}
+
 scored <- timeROC(T = test$time, delta = test$event, marker = risk5,
                   cause = 1, times = horizon)
 auc60  <- tail(na.omit(as.numeric(scored$AUC)), 1)
@@ -71,6 +82,8 @@ ggsave(file.path(dirs$figures, "calibration.png"),
        width = 5, height = 5, dpi = 150)
 ggsave(file.path(dirs$figures, "importance.png"),
        importance_plot(obj$forest), width = 7, height = 5, dpi = 150)
+ggsave(file.path(dirs$figures, "roc_curve.png"),
+       roc_plot(scored), width = 5, height = 5, dpi = 150)
 readr::write_csv(
   tibble::tibble(metric = c("auroc_60mo", "c_index_oob"),
                  value = round(c(auc60, cindex), 3)),
