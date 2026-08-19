@@ -28,7 +28,7 @@ Meeting the guideline corresponds to a $3.3$ percentage point reduction in five-
 
 To see the results without running anything.
 
-- **[report.html](report.html)** is the full rendered report with every figure, table, and the reasoning behind each check. Self-contained, open it in any browser.
+- **[Read the full report](https://jsf3467v.github.io/causal-inference-nhanes/report.html)** for every figure, table, and the reasoning behind each check. The source file, [`report.html`](report.html), is self-contained and opens in any browser once downloaded. GitHub will not render it in the repository view.
 - **`tables/`** holds every comma-separated table the report reads, one per analysis.
 - **`figures/`** holds the receiver operating characteristic, calibration, importance, balance, and distribution plots.
 - **`dashboard/`** holds a single flat export, `cohort_descriptive.csv`, that feeds a [Tableau Public dashboard](https://public.tableau.com/app/profile/a.keith/viz/ActivityandMortalityChart/Dashboard1) showing the unadjusted patterns in the cohort. The adjusted causal analysis lives in the report.

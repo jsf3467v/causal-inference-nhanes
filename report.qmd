@@ -22,6 +22,12 @@ library(readr)
 library(dplyr)
 library(knitr)
 
+# Inline `r ` values outside roughly 1e-4 to 1e4 otherwise render as
+# scientific notation (22235 as 2.2235^{4}, -5e-04 as -5^{-4}).
+knit_hooks$set(inline = function(x) {
+  if (is.numeric(x)) format(x, big.mark = ",", scientific = FALSE, trim = TRUE) else x
+})
+
 tab <- function(name) read_csv(here("tables", paste0(name, ".csv")), show_col_types = FALSE)
 
 flow       <- tab("cohort_flow")
