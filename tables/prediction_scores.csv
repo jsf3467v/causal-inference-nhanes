@@ -1,3 +1,4 @@
 metric,value
-auroc_60mo,0.811
-c_index_oob,0.799
+auroc_full,0.8288885443210307
+auroc_age_only,0.793784430441029
+c_index_oob,0.8051765404744458

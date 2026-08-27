@@ -1,0 +1,35 @@
+Package: causal.inference.nhanes
+Title: Activity and Mortality in NHANES
+Version: 2.1.0
+Description: Two-act NHANES study separating prediction of mortality from the
+    causal effect of meeting the aerobic activity guideline.
+License: MIT + file LICENSE
+Imports:
+    DBI,
+    WeightIt,
+    cobalt,
+    dagitty,
+    dplyr,
+    duckdb,
+    ggplot2,
+    haven,
+    knitr,
+    purrr,
+    quarto,
+    ranger,
+    readr,
+    recipes,
+    rsample,
+    survey,
+    survival,
+    svrep,
+    tableone,
+    tarchetypes,
+    targets,
+    tibble,
+    timeROC
+Suggests:
+    here,
+    renv,
+    testthat
+Encoding: UTF-8

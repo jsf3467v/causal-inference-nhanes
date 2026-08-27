@@ -4,9 +4,9 @@ SELECT
   c.*,
   t.active_min, t.met_guideline,
   s.smoke,
-  m.chd, m.stroke, m.cancer, m.prior_disease,
+  m.prior_disease,
   b.bmi,
-  o.eligible_mort, o.died, o.follow_months, o.ucod, o.early_death
+  o.eligible_mort, o.died, o.follow_months, o.ucod
 FROM covariates c
 LEFT JOIN treatment   t USING (SEQN)
 LEFT JOIN smoking     s USING (SEQN)

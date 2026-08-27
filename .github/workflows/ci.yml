@@ -13,16 +13,54 @@ jobs:
 
       - uses: r-lib/actions/setup-r@v2
         with:
+          r-version: "4.4.2"
           use-public-rspm: true
 
-      - name: Install dependencies
-        shell: Rscript {0}
-        run: |
-          install.packages(c(
-            "here", "dplyr", "survival", "WeightIt", "tibble", "readr", "testthat"
-          ))
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          extra-packages: any::testthat, any::here
 
       - name: Run tests
         shell: Rscript {0}
+        run: testthat::test_dir("tests/testthat", stop_on_failure = TRUE)
+
+  report:
+    if: github.ref == 'refs/heads/main'
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: "4.4.2"
+          use-public-rspm: true
+
+      - uses: r-lib/actions/setup-r-dependencies@v2
+
+      - uses: quarto-dev/quarto-actions/setup@v2
+
+      - name: Cache raw data and pipeline store
+        uses: actions/cache@v4
+        with:
+          path: |
+            data
+            _targets
+          key: pipeline-${{ hashFiles('R/**', 'SQL/**', '_targets.R') }}
+          restore-keys: pipeline-
+
+      - name: Run pipeline and render report
+        shell: Rscript {0}
+        run: targets::tar_make()
+
+      - name: Stage site
         run: |
-          testthat::test_dir("tests", stop_on_failure = TRUE)
+          mkdir -p site
+          cp report.html site/index.html
+
+      - name: Publish to gh-pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: site
+          publish_branch: gh-pages

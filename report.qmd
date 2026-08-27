@@ -17,65 +17,48 @@ execute:
 ---
 
 ```{r setup}
-library(here)
-library(readr)
+library(targets)
 library(dplyr)
 library(knitr)
 
-# Inline `r ` values outside roughly 1e-4 to 1e4 otherwise render as
-# scientific notation (22235 as 2.2235^{4}, -5e-04 as -5^{-4}).
 knit_hooks$set(inline = function(x) {
-  if (is.numeric(x)) format(x, big.mark = ",", scientific = FALSE, trim = TRUE) else x
+  if (is.numeric(x)) format(round(x, 4), big.mark = ",", scientific = FALSE, trim = TRUE) else x
 })
 
-tab <- function(name) read_csv(here("tables", paste0(name, ".csv")), show_col_types = FALSE)
+effects     <- tar_read(effects)
+negative    <- tar_read(negative)
+evalue      <- tar_read(evalue)
+diagnostics <- tar_read(diagnostics)
+scores      <- tar_read(scores)
+tuning      <- tar_read(tuning)
+flow        <- tar_read(flow)
+miss        <- tar_read(missing_tbl)
+table_one   <- tar_read(table_one)
+cohort      <- tar_read(cohort)
+tar_load(c(fig_dag, fig_balance, fig_overlap, fig_minutes,
+           fig_calibration, fig_importance, fig_roc))
 
-flow       <- tab("cohort_flow")
-miss       <- tab("missingness")
-matching   <- tab("matching_rd")
-weighting  <- tab("weighting_rd")
-poscontrol <- tab("positive_control_rd")
-horizon    <- tab("horizon_rd")
-washout    <- tab("washout_rd")
-evalue     <- tab("evalue")
-negcontrol <- tab("negative_control_rd")
-scores     <- tab("prediction_scores")
-mediator   <- tab("mediator_rd")
-
-pick   <- function(df, col, where) df[[col]][where]
-auroc  <- pick(scores, "value", scores$metric == "auroc_60mo")
-cidx   <- pick(scores, "value", scores$metric == "c_index_oob")
-act5   <- pick(horizon, "rd", horizon$exposure == "activity" & horizon$months == 60)
-act10  <- pick(horizon, "rd", horizon$exposure == "activity" & horizon$months == 120)
-smk5   <- pick(horizon, "rd", horizon$exposure == "smoking" & horizon$months == 60)
-smk10  <- pick(horizon, "rd", horizon$exposure == "smoking" & horizon$months == 120)
-match5 <- matching$rd[1]
-wt5    <- weighting$rd[1]
-wt_lo  <- weighting$ci_low[1]
-wt_hi  <- weighting$ci_high[1]
-wash_f <- pick(washout, "rd", washout$sample == "full")
-wash_w <- pick(washout, "rd", washout$sample == "washout")
-wash_lo <- pick(washout, "ci_low", washout$sample == "washout")
-wash_hi <- pick(washout, "ci_high", washout$sample == "washout")
-rr     <- pick(evalue, "value", evalue$measure == "risk_ratio")
-ev_est <- pick(evalue, "value", evalue$measure == "e_value_estimate")
-ev_lim <- pick(evalue, "value", evalue$measure == "e_value_limit")
-neg_rd <- negcontrol$rd[1]
-neg_lo <- negcontrol$ci_low[1]
-neg_hi <- negcontrol$ci_high[1]
-neg_n  <- negcontrol$deaths[1]
-study_n <- pick(flow, "n", flow$step == "exposure known")
-med_base <- pick(mediator, "rd", mediator$adjustment == "base")
-med_bmi  <- pick(mediator, "rd", mediator$adjustment == "with_bmi")
+row_of  <- function(label, m = 60) filter(effects, analysis == label, months == m)
+primary  <- row_of("primary")
+landmk   <- row_of("landmark")
+act10    <- row_of("activity_10yr", 120)
+smk5     <- row_of("positive_control", 60)
+smk10    <- row_of("positive_control", 120)
+med_base <- row_of("mediator_base")
+med_bmi  <- row_of("mediator_bmi")
+value_of <- function(m) evalue$value[evalue$measure == m]
+score_of <- function(m) round(scores$value[scores$metric == m], 3)
+study_n  <- flow$n[flow$step == "exposure known"]
+zero_pct <- round(100 * mean(cohort$active_min == 0, na.rm = TRUE))
 ```
 
 ## The question
 
-This report examines whether adults who meet the aerobic activity guidelines have a lower death rate compared to those who do not. It uses data from six cycles of the National Health and Nutrition Examination Survey (2007-2018), linked to death records through the end of 2019.
+This report examines whether adults who meet the aerobic activity guideline have a lower death rate than adults who do not. It uses six cycles of the National Health and Nutrition Examination Survey from 2007 through 2018, linked to death records through the end of 2019.
 
-The work is divided into two acts that address two distinct questions. The first act only predicts who dies. It asks how well a person's baseline traits forecast death within five years, and nothing more. The second act asks the harder question of whether the activity itself lowers the risk. That means separating the effect of activity from the many ways active people already differ from inactive people before anyone is followed for mortality.
+The work divides into two acts that answer two distinct questions. The first act only predicts who dies. It asks how well baseline traits forecast death within five years, and nothing more. The second act asks whether the activity itself lowers the risk, which requires separating the effect of activity from the many ways active and inactive adults already differ at baseline.
 
-Transparency is maintained from the outset. The observed activity effect is genuine and consistent across methods, but it should be viewed as an upper limit on the benefit rather than an exact causal measure. Some of the apparent benefit results from healthier individuals being more active initially, and the report accounts for this by measuring how much of the effect is attributable to that rather than sidestepping it.
+The estimand is fixed in `protocol.md` before any estimation runs. It is the population average treatment effect on the treated at five years, defined for noninstitutionalized United States adults age 40 and older through the pooled examination weights. Every analysis below is an instance of that specification, and every interval comes from the same replicate construction, so the numbers are comparable.
 
 ## Data and cohort
 
@@ -85,106 +68,143 @@ The study cohort comprises adults age 40 and older who were eligible for mortali
 kable(flow, col.names = c("Step", "Participants"))
 ```
 
-A note worth mentioning is that some individuals finish the household interview but do not attend the physical exam, resulting in no exam date or follow-up time. They exit at the exam follow-up step, which is why the examined count is slightly lower than the mortality-eligible count. This small discrepancy ensures that the reported cohort aligns with the one used in the models.
+Some individuals finish the household interview but do not attend the physical examination, so they have no examination date or follow-up time. They exit at the examination follow-up step, which keeps the reported cohort aligned with the one the models run on.
 
-Missing data is minimal. Family income relative to the poverty line is the only field missing for more than a few percent of the cohort, and the rest are nearly complete.
+Missing data is minimal. Family income relative to the poverty line is the only field missing for more than a few percent of the cohort. Complete-case deletion of that field remains an open item.
 
 ```{r}
-kable(head(miss, 6),
-      col.names = c("Variable", "Fraction missing"), digits = 3)
+kable(head(miss, 6), col.names = c("Variable", "Fraction missing"), digits = 3)
 ```
 
-Initially, the active and inactive groups differ significantly. The active group tends to be younger, predominantly male, better educated, earn more, smokes less, and has a lower body mass index. The biggest differences are seen in education and income. The raw mortality rates are quite different, with around 16% compared to 8% which is much more than what the adjusted analysis will reveal. This disparity is the main reason why the second analysis must effectively address these differences.
+Table 1 is survey weighted, so the described population is the same one the effect estimate refers to. The active group is younger, better educated, higher earning, less likely to smoke, and lighter, and the unadjusted mortality gap is far wider than what the adjusted analysis will report. Closing those gaps is the job of the second act.
 
 ```{r}
-cat(readLines(here("tables", "table_one.txt")), sep = "\n")
+cat(table_one, sep = "\n")
 ```
 
 ```{r}
 #| fig-cap: "Weekly moderate-equivalent leisure minutes, capped at 600. The line marks the 150-minute guideline."
-include_graphics(here("figures", "weekly_minutes.png"))
+include_graphics(fig_minutes)
 ```
 
-The same cohort was built twice, once in R and once in a DuckDB database from a set of SQL files, and the two agree on every count. Building it both ways guards against a quiet error in either path.
+The distribution matters for how the contrast should be read. `r zero_pct` percent of the cohort reports no leisure-time aerobic activity at all, so the inactive arm is not made up of people who exercise somewhat less. It is dominated by a point mass at zero. The comparison is therefore closer to activity against none than to more against less, which is one reason a dose-response specification across ordered categories would be more informative than the binary split used here.
+
+The cohort builds twice, once in R and once in a DuckDB database from a set of SQL files. A pipeline check compares four counts from the two paths and stops the run on any divergence.
 
 ## Act 1, prediction
 
-The initial step fits a random survival forest to predict time to death based on baseline traits, including body mass index. It uses each individual's actual follow-up period rather than imposing a fixed five-year label, ensuring that those with shorter follow-up are properly accounted for instead of being excluded, which could have introduced bias in subsequent analyses.
+A random survival forest predicts time to death from baseline traits, including body mass index. It uses each individual's actual follow-up rather than a fixed five-year label, so participants with shorter follow-up contribute correctly instead of being discarded. The data split into training, validation, and test partitions stratified on the event indicator. The node size is tuned on the validation partition, and the same scoring function used for tuning produces the final test numbers.
 
-Discrimination remains strong, with the five-year area under the curve (`r auroc`) and out-of-bag concordance (`r cidx`) indicating the model's ability to distinguish between those who die and those who survive is well above chance. Calibration is the second evaluation, assessing how closely the model's predicted risks align with the observed risks in each group.
+Discrimination at five years is `r score_of("auroc_full")` by the time-dependent area under the curve, with an out-of-bag concordance of `r score_of("c_index_oob")`. A number like this is uninformative on its own when age is available as a single predictor, so an age-only forest scores through the same function as a reference and reaches `r score_of("auroc_age_only")`. The gap between the two is what the remaining predictors buy.
+
+The tuning result is worth reporting rather than hiding. Validation discrimination rises monotonically across the grid and the largest node size wins, so the optimum is not bracketed by the values searched.
 
 ```{r}
-#| fig-cap: "Time-dependent ROC at five years."
-include_graphics(here("figures", "roc_curve.png"))
+kable(transmute(tuning, min_node_size,
+                auroc_validation = round(auroc_validation, 3), chosen),
+      col.names = c("Minimum node size", "Validation AUROC", "Chosen"))
+```
+
+The differences across that grid are small, and the validation partition holds roughly a seventh of the cohort, so the ranking is within what a single split of that size can resolve. The selected node size is also large relative to the training set, which means the trees are shallow and the forest's flexibility is not being used. Read alongside the importance plot below, where age dominates every other predictor combined, the reasonable conclusion is that five-year mortality here is close to a smooth function of age and that node size is not a meaningful lever. A proportional hazards model on the same predictors would likely score close to the forest, and scoring one would settle the question rather than leaving it as an inference.
+
+```{r}
+#| fig-cap: "Time-dependent ROC at five years on the test partition."
+include_graphics(fig_roc)
 ```
 
 ```{r}
 #| fig-cap: "Calibration at five years. Predicted risk against observed Kaplan-Meier risk by decile of predicted risk."
-include_graphics(here("figures", "calibration.png"))
+include_graphics(fig_calibration)
 ```
 
 ```{r}
 #| fig-cap: "Permutation importance by predictor group."
-include_graphics(here("figures", "importance.png"))
+include_graphics(fig_importance)
 ```
 
 This act says nothing about cause. A model can forecast death well by leaning on age, and age is not something a person changes to live longer. Strong prediction and a real treatment effect are different claims, and telling them apart is the job of the second act.
 
 ## Act 2, the causal effect
 
-The second act evaluates how meeting the guideline impacts five-year mortality, accounting for the confounders listed in Table 1. Body mass index is intentionally excluded from this adjustment because it lies on the causal pathway between activity and death; including it would eliminate part of the effect we're trying to measure.
-
-Two estimators are employed to ensure the results are not dependent on a single method. Matching pairs active and inactive individuals with similar covariates, while weighting adjusts the sample so that the two groups are comparable. In both approaches, the risk difference is determined from a weighted survival curve at five years, which includes participants with shorter follow-up periods rather than excluding them. Matching yields a five-year risk difference of `r match5`, and weighting results in `r wt5` with a 95% confidence interval from `r wt_lo` to `r wt_hi`. The estimates align closely, and a negative value indicates lower mortality in the active group.
+The adjustment set is not argued in prose. It derives from the causal diagram below under the canonical criterion, which excludes descendants of the exposure by construction. Body mass index is modeled as a mediator on the path from activity to death, so it stays out of the primary adjustment. Survey cycle is a node with edges to both exposure and outcome, so calendar time enters the adjustment automatically.
 
 ```{r}
-#| fig-cap: "Covariate balance before and after weighting."
-include_graphics(here("figures", "love_weighting.png"))
+#| fig-cap: "The causal diagram. Both adjustment sets derive from it programmatically."
+include_graphics(fig_dag)
+```
+
+Entropy balancing reweights the inactive arm to the active arm on the derived adjustment set, with the pooled examination weight supplied as a sampling weight, so the estimate refers to the national population rather than the survey sample. The risk difference is read from the balanced survival curves at five years. The interval comes from Rao-Wu-Yue-Beaumont rescaled bootstrap replicate weights that respect the stratified cluster design, and the balancing model refits inside every replicate.
+
+The primary estimate is a five-year risk difference of `r primary$estimate`, with a 95 percent confidence interval from `r primary$ci_low` to `r primary$ci_high`. A negative value means lower mortality in the active group.
+
+```{r}
+#| fig-cap: "Covariate balance before and after entropy balancing."
+include_graphics(fig_balance)
 ```
 
 ```{r}
-#| fig-cap: "Covariate balance before and after matching."
-include_graphics(here("figures", "love_matching.png"))
+#| fig-cap: "Propensity score overlap between arms, shown as a diagnostic rather than asserted."
+include_graphics(fig_overlap)
 ```
 
-The love plots show that both methods bring the standardized differences from the wide gaps of Table 1 down near zero, so the comparison is between groups that are alike on the measured traits. Reading the same weighted curves further out gives a sense of how the effect grows with time.
+The balance plot shows the standardized differences moving from the wide gaps of Table 1 to zero, which entropy balancing achieves exactly on the first moments. The overlap plot shows the two arms sharing support rather than the estimate resting on a thin sliver of the control arm. The effective sizes below are the price of that balance, and they are not small print: the control arm carries far fewer effective observations than its raw count, which is the survey weighting and the balancing compounding. The intervals reflect this, since the balancing model refits inside every replicate.
 
 ```{r}
-kable(horizon, col.names = c("Exposure", "Months", "Risk difference"))
+kable(diagnostics, col.names = c("Arm", "Participants", "Effective size"), digits = 0)
 ```
 
-The activity shows a risk difference of `r act5` at five years and `r act10` at ten years. The smoking rows are the control described next, and the contrast is instructive. The harm from smoking continues to accumulate, reaching `r smk10` at ten years, while the activity benefit grows more slowly.
+## The landmark, co-primary
+
+Reverse causation is the largest threat to this estimate, since frail people are often both less active and close to death. The landmark analysis is therefore co-primary rather than a side check. Participants who died or were censored before 24 months are excluded, follow-up re-anchors at the landmark, and the risk difference is estimated over the following 60 months.
+
+The landmark estimate is `r landmk$estimate`, with an interval from `r landmk$ci_low` to `r landmk$ci_high`, against the primary `r primary$estimate`. That is `r round(100 * (1 - landmk$estimate / primary$estimate))` percent attenuation, well inside the landmark interval, so the data do not support reading the primary figure as inflated by early deaths. Whatever survives the landmark is much harder to attribute to frailty at baseline, and on these numbers most of it survives.
+
+This is a change from an earlier version of the analysis, which used a two-year washout rather than a landmark and reported roughly a third of the effect disappearing. The two are not the same quantity. The washout dropped early deaths but left follow-up anchored at the examination, so it removed events without removing the person-time in which frailty operates. The landmark re-anchors both, and once it does the attenuation largely goes away. The earlier result is better explained by the mismatch than by reverse causation.
 
 ## Falsification and sensitivity
 
-A causal estimate from observational data is only as trustworthy as the checks around it, and five of them sit behind this one. Two ask whether the pipeline itself is honest. Running the same machinery on current versus never smokers recovers a known harm, a five-year risk difference of `r pick(poscontrol, "rd", poscontrol$estimator == "weighted")` from weighting and `r pick(poscontrol, "rd", poscontrol$estimator == "matched")` from matching, so the method finds a real effect when one exists. Turning it on accidental death, where activity has no plausible causal path, gives `r neg_rd` across `r neg_n` deaths with an interval from `r neg_lo` to `r neg_hi`, sitting on zero. The same weights that find a signal on total mortality find nothing where there should be none, so the main result is not an artifact of leftover confounding.
+Every check below passes through the same estimand, the same balancing, and the same replicate interval as the primary analysis.
 
-The next two questions ask how far the estimate could shift. One worry is reverse causation, since frail people are often both less active and close to death. Dropping everyone who died within the first two years and re-estimating shifts the five-year risk difference from `r wash_f` to `r wash_w`, with an interval from `r wash_lo` to `r wash_hi`. This suggests that about a third of the apparent benefit was due to reverse causation, and a real effect remains once it is removed. The other worry is unmeasured confounding, which the E-value measures. On the risk-ratio scale, the estimate is `r rr`, which yields an E-value of `r ev_est` for the estimate and `r ev_lim` for the edge of the interval. A confounder would need a moderate association with both activity and mortality, beyond what is already adjusted for, to erase the effect.
+```{r}
+kable(transmute(effects, analysis, months, estimate = round(estimate, 4),
+                ci_low = round(ci_low, 4), ci_high = round(ci_high, 4)),
+      col.names = c("Analysis", "Months", "Risk difference", "Lower", "Upper"))
+```
 
-The final observation reinterprets a modeling decision rather than a threat. Because activity reduces weight over time, body mass index (BMI) lies on the causal path from activity to death, which explains why it was initially excluded from the main adjustment. Including BMI for participants with measured values shifts the five-year risk difference from `r med_base` to `r med_bmi`. However, this change is minimal and does not affect the overall conclusion, indicating that the result remains consistent whether BMI is considered as a confounder or a mediator.
+The positive control runs current against never smokers through the same machinery with its own derived adjustment set, which excludes prior disease because those conditions are downstream of smoking. It recovers a five-year risk difference of `r smk5$estimate` that grows to `r smk10$estimate` at ten years, so the pipeline detects a known harm and shows it accumulating. The activity contrast reads `r act10$estimate` at ten years.
+
+The negative control turns the machinery on accidental death, where activity has no plausible causal path. Other causes of death are treated as competing events in an Aalen-Johansen estimate rather than as censoring, and decedents with missing cause codes count as competing deaths rather than leaving the analysis. Across `r negative$deaths` accidental deaths the risk difference is `r negative$estimate`, with an interval from `r negative$ci_low` to `r negative$ci_high`. The same weights that find a signal on total mortality find nothing where there should be none. The check is weak in one direction: `r negative$deaths` events cannot rule out a bias smaller than the interval width, so a null here is reassurance rather than proof.
+
+The mediator pair reruns the estimate on the subset with measured body mass index, once without it and once with it, so the two fits differ only by the model and not by who is in it. The pair reads `r med_base$estimate` against `r med_bmi$estimate`, so the conclusion does not turn on whether body mass index is treated as a confounder or a mediator.
+
+The E-value bounds unmeasured confounding. On the risk-ratio scale the estimate is `r round(value_of("risk_ratio"), 2)`, which yields an E-value of `r round(value_of("e_value_estimate"), 1)` for the estimate and `r round(value_of("e_value_limit"), 1)` for the confidence limit nearest the null. A confounder would need at least that strength of association with both activity and mortality, beyond what is already adjusted, to erase the effect. These are bounds rather than measurements, so they are reported to one decimal.
 
 ## Conclusion and limitations
 
-The activity effect is consistent and reliable. Matching and weighting align, with estimates remaining stable over five and ten-year periods. The results are balanced and persist through both positive and negative controls. However, washout analysis indicates that about one-third of the apparent benefit may be due to reverse causation. Additionally, the E-value suggests that a moderate unmeasured confounder could influence the outcome. Together, these findings imply that the figure should be viewed as an upper bound on activity's benefit rather than a definitive causal effect.
+The effect is consistent. It refers to one stated population, it survives the positive and negative controls, and the mediator pair barely moves it. The landmark is the honest headline, and it holds where excluding the first 24 months and re-anchoring follow-up leaves the estimate close to the primary one, which is the strongest single piece of evidence here against reverse causation.
 
-Several limitations should be clearly acknowledged. The analysis accounts for confounders but does not reweight to the national population; therefore, design fields and survey weights are included but not applied. The estimate reflects a sample average effect among the treated, not a population-wide figure. The matching estimate is presented as a point value without an interval because standard bootstrap methods are invalid for nearest-neighbor matching, with the weighting interval providing the inference instead. The negative-control risk is measured with other-cause deaths censored, which slightly inflates the absolute cause-specific risk but does not affect group comparisons. Importantly, this is observational data, so unmeasured confounding cannot be entirely ruled out, which justifies framing the main result as an upper bound rather than a definitive causal conclusion.
+That is not the same as a settled causal estimate. The landmark rules out frailty in the first two years, not confounding by anything unmeasured, and the negative control rests on `r negative$deaths` accidental deaths, which is too few to detect a bias of the size that would matter. The E-value is the more useful bound.
+
+Three limitations remain open by design. Family income is handled by complete-case deletion without a missingness sensitivity analysis. The exposure is dichotomized at 150 minutes per week, which discards most of the information in the measurement and sets the comparison against an inactive arm that is mostly a point mass at zero. The causal diagram is an assumption whose implied conditional independencies have not yet been tested against the data. This is observational data, so unmeasured confounding cannot be ruled out, and the E-value quantifies rather than removes that concern.
 
 ## References
 
-The design and methods follow established work in causal inference and survival analysis,
-and the question itself builds on a large literature linking activity to mortality.
+The design and methods follow established work in causal inference and survival analysis, and the question itself builds on a large literature linking activity to mortality.
 
-1. Pearl J, Glymour M, Jewell NP. Causal Inference in Statistics: A Primer. Hoboken, NJ: Wiley; 2016.
+1. Pearl J, Glymour M, Jewell NP. Causal Inference in Statistics. Hoboken, NJ. Wiley, 2016.
 
-2. Rosenbaum PR, Rubin DB. The central role of the propensity score in observational studies for causal effects. Biometrika. 1983;70(1):41-55. doi:10.1093/biomet/70.1.41
+2. Hainmueller J. Entropy balancing for causal effects. Political Analysis. 2012;20(1):25-46. doi:10.1093/pan/mpr025
 
-3. Austin PC, Stuart EA. Moving towards best practice when using inverse probability of treatment weighting (IPTW) using the propensity score to estimate causal treatment effects in observational studies. Stat Med. 2015;34(28):3661-3679. doi:10.1002/sim.6607
+3. Rao JNK, Wu CFJ. Resampling inference with complex survey data. Journal of the American Statistical Association. 1988;83(401):231-241. doi:10.1080/01621459.1988.10478591
 
-4. Schisterman EF, Cole SR, Platt RW. Overadjustment bias and unnecessary adjustment in epidemiologic studies. Epidemiology. 2009;20(4):488-495. doi:10.1097/EDE.0b013e3181a819a1
+4. Textor J, van der Zander B, Gilthorpe MS, Liskiewicz M, Ellison GTH. Robust causal inference using directed acyclic graphs, the R package dagitty. International Journal of Epidemiology. 2016;45(6):1887-1894. doi:10.1093/ije/dyw341
 
-5. Lipsitch M, Tchetgen Tchetgen E, Cohen T. Negative controls: a tool for detecting confounding and bias in observational studies. Epidemiology. 2010;21(3):383-388. doi:10.1097/EDE.0b013e3181d61eeb
+5. Schisterman EF, Cole SR, Platt RW. Overadjustment bias and unnecessary adjustment in epidemiologic studies. Epidemiology. 2009;20(4):488-495. doi:10.1097/EDE.0b013e3181a819a1
 
-6. VanderWeele TJ, Ding P. Sensitivity analysis in observational research: introducing the E-value. Ann Intern Med. 2017;167(4):268-274. doi:10.7326/M16-2607
+6. Lipsitch M, Tchetgen Tchetgen E, Cohen T. Negative controls, a tool for detecting confounding and bias in observational studies. Epidemiology. 2010;21(3):383-388. doi:10.1097/EDE.0b013e3181d61eeb
 
-7. Ishwaran H, Kogalur UB, Blackstone EH, Lauer MS. Random survival forests. Ann Appl Stat. 2008;2(3):841-860. doi:10.1214/08-AOAS169
+7. VanderWeele TJ, Ding P. Sensitivity analysis in observational research, introducing the E-value. Annals of Internal Medicine. 2017;167(4):268-274. doi:10.7326/M16-2607
 
-8. Arem H, Moore SC, Patel A, et al. Leisure time physical activity and mortality: a detailed pooled analysis of the dose-response relationship. JAMA Intern Med. 2015;175(6):959-967. doi:10.1001/jamainternmed.2015.0533
+8. Ishwaran H, Kogalur UB, Blackstone EH, Lauer MS. Random survival forests. Annals of Applied Statistics. 2008;2(3):841-860. doi:10.1214/08-AOAS169
+
+9. Arem H, Moore SC, Patel A, et al. Leisure time physical activity and mortality, a detailed pooled analysis of the dose-response relationship. JAMA Internal Medicine. 2015;175(6):959-967. doi:10.1001/jamainternmed.2015.0533
