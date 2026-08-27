@@ -1,4 +1,4 @@
--- Baseline coronary disease, stroke, cancer, and any-of flag.
+-- Any-of flag over baseline coronary disease, stroke, and cancer.
 CREATE OR REPLACE TABLE comorbidity AS
 WITH flags AS (
   SELECT
@@ -9,7 +9,7 @@ WITH flags AS (
   FROM mcq
 )
 SELECT
-  SEQN, chd, stroke, cancer,
+  SEQN,
   CASE
     WHEN chd = 1 OR stroke = 1 OR cancer = 1 THEN 1
     WHEN (chd = 1 OR stroke = 1 OR cancer = 1) IS FALSE THEN 0

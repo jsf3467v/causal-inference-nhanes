@@ -1,141 +1,67 @@
 [![CI](https://github.com/jsf3467v/causal-inference-nhanes/actions/workflows/ci.yml/badge.svg)](https://github.com/jsf3467v/causal-inference-nhanes/actions/workflows/ci.yml)
 
-# Does Meeting the Aerobic Activity Guideline Lower Mortality?
+# Does Meeting the Aerobic Activity Guideline Lower Mortality
 
-This project asks whether meeting the aerobic activity guideline lowers the risk of death, and it answers the question in two acts. The first act is one of prediction. It measures how well a person's baseline characteristics forecast death within five years and goes no further. The second act addresses the harder question of whether activity itself lowers that risk, which requires separating the effect of the activity from the many ways in which active and inactive adults already differ at baseline. Prediction and causation are distinct claims, and distinguishing between them is the purpose of the study.
+The project answers this question in two acts. The first act measures how well baseline characteristics predict death within five years. The second act estimates the causal effect of the activity itself, which requires separating that effect from the many ways active and inactive adults already differ at baseline.
 
-The data comprise six cycles of NHANES ($2007$-$2018$), linked to mortality records through $2019$. Adults aged $40$ and older who were eligible for follow-up and had a known activity level form the study cohort of $22{,}235$ people. Activity is measured as leisure-time aerobic minutes per week, and $150$ minutes marks the guideline threshold.
+The data comprise six cycles of the National Health and Nutrition Examination Survey from 2007 through 2018, which is linked to mortality records through 2019. The cohort is adults age 40 and older who were eligible for follow-up and had a known activity level. Activity is leisure-time aerobic minutes per week, and 150 minutes marks the guideline threshold.
 
-Meeting the guideline corresponds to a $3.3$ percentage point reduction in five-year mortality risk, a weighted average treatment effect on the treated of $-0.0329$, with a $95$ percent confidence interval from $-0.041$ to $-0.025$. The estimate holds under both matching and weighting, and it survives the positive and negative controls, a reverse-causation washout, and a mediator check. An E-value of $2.9$ measures its resilience further, since an unmeasured confounder would need an association of at least that strength with both activity and mortality to account for the result. The washout is also where the main caution appears, because dropping deaths in the first two years removes roughly a third of the effect, which points to reverse causation. For that reason the figure is best interpreted as an upper bound on the benefit rather than a settled causal estimate.
+**[Read the full report](https://jsf3467v.github.io/causal-inference-nhanes/)**, which continuous integration renders and publishes on every push to main.
 
-[![Covariate balance before and after weighting](https://github.com/jsf3467v/causal-inference-nhanes/raw/main/figures/love_weighting.png)](figures/love_weighting.png)
+## Result
 
-## Summary
+Meeting the guideline is associated with a 2.6 percentage point decrease in five-year mortality risk among those who meet it. The population average treatment effect on the treated is $-0.0257$, with a 95% confidence interval ranging from $-0.0330$ to $-0.0184$. The co-primary landmark, which excludes the first 24 months and redefines follow-up, shows a similar effect of $-0.0241$. The consistency between these two findings suggests the effect isn't due to frail individuals being both inactive and near death. An E-value of $3.1$ indicates that an unmeasured confounder would need at least this level of association with both activity and mortality to negate the observed effect.
 
-- **Question.** Whether adults aged $40$ and older who meet the aerobic activity guideline have a lower death rate than those who do not, and how much of any difference reflects the activity itself rather than prior health.
+The first act reaches a time-dependent area under the curve of $0.829$ at five years against $0.794$ for an age-only model scored the same way. So, everything besides age buys about three and a half points of discrimination. Validation performance is flat across an eighty-fold range of node sizes and the selected value sits at the edge of the grid, which says the forest's flexibility is not being used and that mortality here is close to a smooth function of age. Predicting the outcome well and estimating the effect of changing it are separate problems, and this is what the separation looks like.
 
-- **Data.** Six NHANES cycles held $59{,}842$ participants, narrowed to a study cohort of $22{,}235$ adults aged $40$ and older who were followed for mortality and had a known activity level. Exposure is leisure-time aerobic activity in moderate-equivalent minutes per week, with $150$ minutes as the guideline threshold.
+This remains observational. The estimate rests on the causal diagram being right, and the diagram is an assumption rather than a finding.
 
-- **Act 1, prediction.** A random survival forest is applied to each individual's actual follow-up data instead of a censored five-year label. The model achieves a time-dependent area under the receiver operating characteristic curve of $0.811$ at five years and an out-of-bag concordance of $0.799$. Body mass index is used as a predictor in this context but is removed from the causal analysis.
+## Design
 
-- **Act 2, the effect.** Propensity-score matching and inverse-probability weighting each read the risk difference from a weighted survival curve, which keeps participants with shorter follow-up rather than discarding them. The two approaches agree closely, matching at $-0.0352$ and weighting at $-0.0329$, and body mass index is left out of the adjustment because it sits on the pathway from activity to death rather than confounding it.
+The estimand is fixed in [`protocol.md`](protocol.md) before any estimation runs. It is the population average treatment effect on the treated at five years, estimated by entropy balancing ([Hainmueller 2012](https://doi.org/10.1093/pan/mpr025)) with the pooled examination weights, with variance from survey bootstrap replicate weights that respect the cluster design. The adjustment sets derive from the causal diagram in `R/dag.R` and are pinned by a test. A reverse-causation landmark is co-primary. The protocol names every sensitivity analysis, including a smoking positive control, an accidental-death negative control with competing risks, a mediator pair, and an E-value.
 
-- **Validation.** A smoking positive control recovers a known harm, matched at $0.016$ and weighted at $0.0202$. An accidental-death negative control sits on zero, $-0.0005$ with an interval from $-0.0018$ to $0.0008$. A two-year washout moves the estimate from $-0.0329$ to $-0.0219$. A mediator check that adds body mass index back moves it only from $-0.029$ to $-0.0312$, a negligible change. An E-value of $2.93$ says a confounder would need a moderate association with both activity and mortality to erase the result.
+## Audit
 
-- **Reproducibility.** The cohort is built twice, once in R and once in DuckDB from a set of SQL files, and the two agree on every count, which guards against a quiet error in either path.
+The protocol, causal diagram, and pipeline graph govern every design decision, ensuring no script deviates from the estimand, adjustment sets, or execution order. The survey design influences both the estimate and variance, with each interval undergoing a replicate construction. Adjustment sets are determined and validated through testing, while the system's tests, database cross-checks, and continuous integration detect actual errors rather than passing blindly.
 
-## Overview
+Three issues remain unresolved. Missing family income is handled by complete-case deletion; the exposure is dichotomized at 150 minutes per week; and the implied conditional independencies in the causal diagram have not yet been tested against the data.
 
-To see the results without running anything.
+## Reproducing
 
-- **[Read the full report](https://jsf3467v.github.io/causal-inference-nhanes/report.html)** for every figure, table, and the reasoning behind each check. The source file, [`report.html`](report.html), is self-contained and opens in any browser once downloaded. GitHub will not render it in the repository view.
-- **`tables/`** holds every comma-separated table the report reads, one per analysis.
-- **`figures/`** holds the receiver operating characteristic, calibration, importance, balance, and distribution plots.
-- **`dashboard/`** holds a single flat export, `cohort_descriptive.csv`, that feeds a [Tableau Public dashboard](https://public.tableau.com/app/profile/a.keith/viz/ActivityandMortalityChart/Dashboard1) showing the unadjusted patterns in the cohort. The adjusted causal analysis lives in the report.
+The project is a [`targets`](https://docs.ropensci.org/targets/) pipeline. Reproduction is one command from the project root, intermediate results cache to `_targets/`, and an interrupted run resumes at the first stale node.
 
-## Setup
-
-The project is tested on macOS (Apple Silicon) and Linux and requires R 4.4 or newer. Install the dependencies in R.
-
-```
-install.packages(c(
-  "here", "dplyr", "ggplot2", "tidyr", "readr", "purrr", "haven",
-  "survival", "MatchIt", "WeightIt", "cobalt", "tableone",
-  "rsample", "recipes", "ranger", "timeROC",
-  "DBI", "duckdb", "knitr"
-))
+```r
+install.packages("renv")
+renv::restore()                    # installs the pinned packages from renv.lock
+targets::tar_make()                # pulls data, builds everything, renders the report
 ```
 
-Open the project through `Causal Inf.Rproj` so the working directory and the `here()` anchor are set together. Running scripts from a bare session in another folder will misplace the outputs.
+`renv::restore()` installs the package versions recorded in `renv.lock`, which continuous integration also restores. The pipeline needs R 4.4 or newer and [Quarto](https://quarto.org) for the report. It runs on macOS, Linux, and Windows, and all paths are relative to the project root.
 
-## Data
+Raw files are downloaded once from the Centers for Disease Control and Prevention and stored in the `data/raw` directory. Each file is first downloaded with a temporary name and only renamed upon successful completion, preventing partial files from remaining in the cache if a transfer fails.
 
-Everything is pulled and cached automatically on the first run. `data_sources.R` downloads the NHANES survey tables from the Centers for Disease Control and Prevention and the public-use linked mortality files, then caches them to `data/raw` so later runs and crash recovery skip the network. Nothing needs to be downloaded by hand. The `data/` tree is not tracked by git.
+Three core operations are initialized: the replicate weight construction, the data split, and the forest. The replicate weight loop is designed to run across the available CPU cores. Since no estimation step employs randomness, the output remains consistent regardless of the number of workers. The forest thread count is set in `R/scoring.R` due to each thread's generator being seeded individually.
 
-## Reproducing from scratch
+## Outputs
 
-Run from the project root in order. Each script reads the cached frame, so once the cohort is built the Act 2 scripts can run in any order.
+Generated outputs are not monitored. `tar_make()` saves tables in `tables/`, figures in `figures/`, exports to Tableau in `dashboard/`, and creates the report at `report.html`. During continuous integration, the report is generated on each push to main and published to the `gh-pages` branch. The raw cohort patterns are displayed on a [Tableau Public dashboard](https://public.tableau.com/app/profile/a.keith/viz/ActivityandMortalityChart/Dashboard1).
 
-```
-source(here::here("R", "data_sources.R"))   # pull NHANES and mortality, cache to data/raw
-source(here::here("R", "cohort.R"))         # derive the analysis frame
-source(here::here("R", "database.R"))       # build the same cohort in DuckDB and check the counts
-source(here::here("R", "eda.R"))            # cohort flow, missingness, Table 1, distribution
-source(here::here("R", "dashboard.R"))      # descriptive export for the Tableau dashboard
+## Testing
 
-source(here::here("R", "prediction.R"))         # prediction, train the survival forest
-source(here::here("R", "prediction_eval.R"))    # prediction, discrimination and calibration
+The tests run on synthetic data and require no download. One test simulates a cohort with a known true risk difference in closed form and asserts that the estimator recovers it. A second pins the adjustment sets derived from the causal diagram. Fixture tests exercise the published sentinel codes for refused and do-not-know responses across every recoding path, and a further fixture checks that codes outside the published range become missing rather than being assigned a category invented from the data.
 
-source(here::here("R", "matching.R"))           # causal, matched estimate
-source(here::here("R", "weighting.R"))          # causal, weighted estimate with bootstrap interval
-source(here::here("R", "horizon.R"))            # five and ten-year risk differences
-source(here::here("R", "positive_control.R"))   # smoking, a known harm
-source(here::here("R", "negative_control.R"))   # accidental death, expected null
-source(here::here("R", "washout.R"))            # reverse-causation check
-source(here::here("R", "mediator.R"))           # body mass index sensitivity
-source(here::here("R", "evalue.R"))             # unmeasured-confounding bound
+```r
+testthat::test_dir("tests/testthat", stop_on_failure = TRUE)
 ```
 
-Then render the report.
+## Layout
 
 ```
-quarto render report.qmd
+_targets.R        pipeline graph, options, seeds
+protocol.md       the estimand, fixed before estimation
+AUDIT.md          the faults found in the previous version and their resolution
+R/                functions only, sourced by the pipeline
+SQL/              the DuckDB mirror of the cohort build
+tests/testthat/   fixture and estimator tests
+report.qmd        report source, rendered by the pipeline
 ```
-
-The outputs land in the `figures/` and `tables/` directories, and the report reads from both.
-
-## Project layout
-
-```
-.
-├── Causal Inf.Rproj
-├── LICENSE
-├── README.md
-├── report.qmd                 # the report source
-├── report.html                # rendered, self-contained
-├── .github/
-│   └── workflows/
-│       └── ci.yml             # runs the test suite on every push
-├── R/
-│   ├── paths.R                # project directories, anchored by here()
-│   ├── shared.R               # cohort rule, adjustment sets, weights, estimator, bootstrap
-│   ├── data_sources.R         # NHANES and mortality pulls, cached
-│   ├── cohort.R               # derive the analysis frame in R
-│   ├── database.R             # build the same cohort in DuckDB, check counts
-│   ├── eda.R                  # cohort flow, missingness, Table 1, distribution
-│   ├── dashboard.R            # descriptive export for the Tableau dashboard
-│   ├── prediction.R           # Act 1 training
-│   ├── prediction_eval.R      # Act 1 scoring
-│   ├── matching.R             # Act 2 matched estimate
-│   ├── weighting.R            # Act 2 weighted estimate
-│   ├── horizon.R              # five and ten-year horizons
-│   ├── positive_control.R     # smoking control
-│   ├── negative_control.R     # accidental-death control
-│   ├── washout.R              # reverse-causation washout
-│   ├── mediator.R             # body mass index sensitivity
-│   └── evalue.R               # E-value
-├── SQL/                       # DuckDB build, one file per derived table
-├── tests/
-│   ├── test_shared.r          # unit tests for the shared building blocks
-│   └── test_outputs.r         # checks on the committed result tables
-├── dashboard/                 # descriptive export for Tableau
-├── data/{raw,interim,processed}/   # not tracked by git
-├── figures/                   # rendered plots
-└── tables/                    # rendered tables and Table 1
-```
-
-## Citation
-
-```
-@misc{keith2026activity,
-  author       = {Keith, Arlene},
-  title        = {Does Meeting the Aerobic Activity Guideline Lower Mortality},
-  year         = {2026},
-  howpublished = {NHANES observational study},
-  url          = {https://github.com/jsf3467v/causal-inference-nhanes}
-}
-```
-
-## License
-
-MIT License, see `LICENSE`.
