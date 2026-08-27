@@ -98,6 +98,7 @@ list(
 
   tar_target(bundle, forest_bundle(frame, months_5yr, seed = 202)),
   tar_target(scores, forest_scores(bundle, months_5yr)),
+  tar_target(tuning, bundle$tuning),
   tar_target(fig_calibration,
              calibration_figure(bundle, months_5yr,
                                 file.path("figures", "calibration.png")),
@@ -122,9 +123,9 @@ list(
   tar_target(scores_csv, table_file(scores,
                                     file.path("tables", "prediction_scores.csv")),
              format = "file"),
-  tar_target(tuning_csv, table_file(bundle$tuning,
-                                    file.path("tables", "tuning.csv")),
-             format = "file"),
+  tar_target(tuning_csv, table_file(tuning,
+                                  file.path("tables", "tuning.csv")),
+           format = "file"),
   tar_target(flow_csv, table_file(flow, file.path("tables", "cohort_flow.csv")),
              format = "file"),
   tar_target(missing_csv, table_file(missing_tbl,
@@ -137,5 +138,5 @@ list(
                                        file.path("dashboard", "cohort_descriptive.csv")),
              format = "file"),
 
-  tar_quarto(report, "report.qmd")
+  tar_quarto(report, "report.qmd", quiet = FALSE)
 )

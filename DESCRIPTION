@@ -18,6 +18,7 @@ Imports:
     quarto,
     ranger,
     readr,
+    rmarkdown,
     recipes,
     rsample,
     survey,
